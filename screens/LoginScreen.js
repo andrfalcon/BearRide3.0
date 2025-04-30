@@ -56,6 +56,15 @@ export default function LoginScreen() {
       return
     }
 
+    // Check if email is a valid Berkeley email
+    if (!email.toLowerCase().endsWith("@berkeley.edu")) {
+      Alert.alert(
+        "Invalid Email",
+        "You must use a UC Berkeley email address (@berkeley.edu) to use BearRide"
+      )
+      return
+    }
+
     // Here you would typically handle the login/signup process
     Alert.alert("Success", "Profile information submitted successfully")
   }
@@ -115,11 +124,11 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Continue</Text>
             </TouchableOpacity>
 
-            <View style={styles.footer}>
+            {/* <View style={styles.footer}>
               <Text style={styles.footerText}>
                 Already have an account? <Text style={styles.footerLink}>Sign In</Text>
               </Text>
-            </View>
+            </View> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
