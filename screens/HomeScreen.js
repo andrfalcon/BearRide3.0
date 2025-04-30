@@ -6,16 +6,18 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import GroupCard from '../components/GroupCard';
 import CreateGroupModal from '../components/CreateGroupModal';
 import { db } from '../firebaseConfig';
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import GroupScreen from './GroupScreen';
+import { getAuth } from 'firebase/auth';
 
 const Tab = createBottomTabNavigator();
 
 function HomeTab() {
   const navigation = useNavigation();
   const route = useRoute();
+  const auth = getAuth();
   const [selectedOption, setSelectedOption] = useState('Option 1');
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -108,6 +110,27 @@ function HomeTab() {
     fetchGroups().finally(() => setRefreshing(false));
   }, []);
 
+  const joinGroup = async (groupId) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        setError('You must be logged in to join a group');
+        return;
+      }
+
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        joinedGroups: arrayUnion(groupId)
+      });
+
+      // Refresh the groups list to show updated state
+      await fetchGroups();
+    } catch (error) {
+      console.error('Error joining group:', error);
+      setError('Failed to join group. Please try again.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -153,6 +176,7 @@ function HomeTab() {
               departureTime={group.departureTime}
               gradientColors={group.gradientColors}
               onPress={() => console.log(`Pressed ${group.name}`)}
+              onJoinPress={() => joinGroup(group.id)}
             />
           ))
         )}
