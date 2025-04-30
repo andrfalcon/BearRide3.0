@@ -15,7 +15,7 @@ import {
 import * as ImagePicker from "expo-image-picker"
 import { Camera } from "lucide-react-native"
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("")
   const [fullName, setFullName] = useState("")
   const [profileImage, setProfileImage] = useState(null)
@@ -66,7 +66,7 @@ export default function LoginScreen() {
     }
 
     // Here you would typically handle the login/signup process
-    Alert.alert("Success", "Profile information submitted successfully")
+    navigation.navigate('Welcome');
   }
 
   return (
