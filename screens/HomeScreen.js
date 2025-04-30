@@ -2,11 +2,11 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, Platform, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import GroupCard from '../components/GroupCard';
 import CreateGroupModal from '../components/CreateGroupModal';
 import { db } from '../firebaseConfig';
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import GroupScreen from './GroupScreen';
@@ -26,10 +26,27 @@ function HomeTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [joinedGroupIds, setJoinedGroupIds] = useState([]);
 
   useEffect(() => {
     fetchGroups();
+    fetchJoinedGroups();
   }, []);
+
+  const fetchJoinedGroups = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.data();
+      if (userData && userData.joinedGroups) {
+        setJoinedGroupIds(userData.joinedGroups);
+      }
+    } catch (err) {
+      console.error('Error fetching joined groups:', err);
+    }
+  };
 
   const fetchGroups = async () => {
     try {
@@ -44,7 +61,7 @@ function HomeTab() {
         memberCount: doc.data().numMembers,
         destination: doc.data().destination,
         departureTime: doc.data().departureTime,
-        gradientColors: getRandomGradientColors() // You might want to store this in Firestore if you want consistent colors
+        gradientColors: getRandomGradientColors()
       }));
       
       setGroups(fetchedGroups);
@@ -123,13 +140,22 @@ function HomeTab() {
         joinedGroups: arrayUnion(groupId)
       });
 
-      // Refresh the groups list to show updated state
-      await fetchGroups();
+      // Update local state
+      setJoinedGroupIds(prev => [...prev, groupId]);
+      
+      // Remove the joined group from the display
+      setGroups(prevGroups => prevGroups.filter(group => group.id !== groupId));
+
+      // Trigger refresh on GroupScreen
+      navigation.navigate('Groups', { refresh: true });
     } catch (error) {
       console.error('Error joining group:', error);
       setError('Failed to join group. Please try again.');
     }
   };
+
+  // Filter out joined groups
+  const availableGroups = groups.filter(group => !joinedGroupIds.includes(group.id));
 
   return (
     <View style={styles.container}>
@@ -162,12 +188,12 @@ function HomeTab() {
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
-        ) : groups.length === 0 ? (
+        ) : availableGroups.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No groups available. Create one!</Text>
           </View>
         ) : (
-          groups.map((group, index) => (
+          availableGroups.map((group, index) => (
             <GroupCard
               key={group.id}
               groupName={group.name}

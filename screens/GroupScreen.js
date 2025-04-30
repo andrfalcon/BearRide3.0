@@ -5,7 +5,7 @@ import { getAuth } from 'firebase/auth';
 import { doc, getDoc, collection } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import JoinedGroupCard from '../components/JoinedGroupCard';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 export default function GroupScreen() {
   const [joinedGroups, setJoinedGroups] = useState([]);
@@ -13,10 +13,20 @@ export default function GroupScreen() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
+  const route = useRoute();
 
   useEffect(() => {
     fetchJoinedGroups();
   }, []);
+
+  // Add effect to handle refresh parameter
+  useEffect(() => {
+    if (route.params?.refresh) {
+      fetchJoinedGroups();
+      // Clear the refresh parameter
+      navigation.setParams({ refresh: undefined });
+    }
+  }, [route.params?.refresh]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
