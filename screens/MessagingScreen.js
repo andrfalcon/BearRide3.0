@@ -11,7 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { getAuth } from 'firebase/auth';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,10 +55,15 @@ export default function MessagingScreen({ route, navigation }) {
     if (!user) return;
 
     try {
+      // Get user's full name from Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.data();
+      const senderName = userData?.fullName || 'Anonymous';
+
       await addDoc(collection(db, `groups/${groupId}/messages`), {
         text: newMessage,
         senderId: user.uid,
-        senderName: user.displayName || 'Anonymous',
+        senderName: senderName,
         timestamp: serverTimestamp(),
       });
       setNewMessage('');
