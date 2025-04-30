@@ -11,16 +11,24 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import { Camera } from "lucide-react-native"
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
+import { db } from "../firebaseConfig"
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
   const [profileImage, setProfileImage] = useState(null)
   const [isEmailFocused, setIsEmailFocused] = useState(false)
   const [isNameFocused, setIsNameFocused] = useState(false)
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isLogin, setIsLogin] = useState(false)
 
   const pickImage = async () => {
     // Request permission
@@ -44,14 +52,19 @@ export default function LoginScreen({ navigation }) {
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validate inputs
     if (!email.trim()) {
       Alert.alert("Email required", "Please enter your email address")
       return
     }
 
-    if (!fullName.trim()) {
+    if (!password.trim()) {
+      Alert.alert("Password required", "Please enter your password")
+      return
+    }
+
+    if (!isLogin && !fullName.trim()) {
       Alert.alert("Name required", "Please enter your full name")
       return
     }
@@ -65,8 +78,43 @@ export default function LoginScreen({ navigation }) {
       return
     }
 
-    // Here you would typically handle the login/signup process
-    navigation.navigate('Welcome');
+    setIsLoading(true)
+    const auth = getAuth()
+
+    try {
+      if (isLogin) {
+        // Handle login
+        await signInWithEmailAndPassword(auth, email, password)
+        navigation.navigate('Welcome')
+      } else {
+        // Handle signup
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+        const user = userCredential.user
+
+        // Create user document in Firestore
+        await setDoc(doc(db, "users", user.uid), {
+          fullName,
+          email,
+          createdAt: new Date().toISOString(),
+        })
+
+        navigation.navigate('Welcome')
+      }
+    } catch (error) {
+      let errorMessage = "An error occurred. Please try again."
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "This email is already registered. Please login instead."
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage = "Invalid email address."
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "Password should be at least 6 characters."
+      } else if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+        errorMessage = "Invalid email or password."
+      }
+      Alert.alert("Error", errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -74,36 +122,40 @@ export default function LoginScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingView}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <View style={styles.header}>
-            <Text style={styles.title}>Create BearRide Profile</Text>
-            <Text style={styles.subtitle}>Please enter your details below</Text>
+            <Text style={styles.title}>{isLogin ? "Welcome Back" : "Create BearRide Profile"}</Text>
+            <Text style={styles.subtitle}>{isLogin ? "Sign in to continue" : "Please enter your details below"}</Text>
           </View>
 
-          <View style={styles.profileImageContainer}>
-            <TouchableOpacity style={styles.profileImageWrapper} onPress={pickImage}>
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.profileImage} />
-              ) : (
-                <View style={styles.profileImagePlaceholder}>
-                  <Camera color="#008080" size={40} />
-                  <Text style={styles.uploadText}>Upload Photo</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+          {!isLogin && (
+            <View style={styles.profileImageContainer}>
+              <TouchableOpacity style={styles.profileImageWrapper} onPress={pickImage}>
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={styles.profileImage} />
+                ) : (
+                  <View style={styles.profileImagePlaceholder}>
+                    <Camera color="#008080" size={40} />
+                    <Text style={styles.uploadText}>Upload Photo</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={[styles.input, isNameFocused && styles.inputFocused]}
-                placeholder="Enter your full name"
-                value={fullName}
-                onChangeText={setFullName}
-                onFocus={() => setIsNameFocused(true)}
-                onBlur={() => setIsNameFocused(false)}
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
+            {!isLogin && (
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Full Name</Text>
+                <TextInput
+                  style={[styles.input, isNameFocused && styles.inputFocused]}
+                  placeholder="Enter your full name"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  onFocus={() => setIsNameFocused(true)}
+                  onBlur={() => setIsNameFocused(false)}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            )}
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email Address</Text>
@@ -120,15 +172,40 @@ export default function LoginScreen({ navigation }) {
               />
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-              <Text style={styles.buttonText}>Continue</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={[styles.input, isPasswordFocused && styles.inputFocused]}
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.button, isLoading && styles.buttonDisabled]} 
+              onPress={handleSubmit}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.buttonText}>{isLogin ? "Sign In" : "Sign Up"}</Text>
+              )}
             </TouchableOpacity>
 
-            {/* <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                Already have an account? <Text style={styles.footerLink}>Sign In</Text>
+            <TouchableOpacity 
+              style={styles.switchButton}
+              onPress={() => setIsLogin(!isLogin)}
+            >
+              <Text style={styles.switchButtonText}>
+                {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
               </Text>
-            </View> */}
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -252,5 +329,17 @@ const styles = StyleSheet.create({
   footerLink: {
     color: "#008080",
     fontWeight: "600",
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  switchButton: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  switchButtonText: {
+    color: "#008080",
+    fontSize: 16,
+    fontWeight: "500",
   },
 })

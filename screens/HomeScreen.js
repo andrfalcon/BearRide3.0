@@ -8,8 +8,12 @@ import CreateGroupModal from '../components/CreateGroupModal';
 import { db } from '../firebaseConfig';
 import { collection, addDoc, serverTimestamp, getDocs, query, orderBy } from 'firebase/firestore';
 import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import GroupScreen from './GroupScreen';
 
-export default function HomeScreen() {
+const Tab = createBottomTabNavigator();
+
+function HomeTab() {
   const navigation = useNavigation();
   const route = useRoute();
   const [selectedOption, setSelectedOption] = useState('Option 1');
@@ -108,8 +112,8 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity 
+          onPress={() => navigation.goBack()}
           style={styles.backButton}
-          onPress={() => navigation.navigate('Welcome')}
         >
           <Ionicons name="arrow-back" size={24} color="#2c3e50" />
         </TouchableOpacity>
@@ -122,8 +126,8 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#3498db']} // Android
-            tintColor="#3498db" // iOS
+            colors={['#3498db']}
+            tintColor="#3498db"
           />
         }
       >
@@ -175,6 +179,32 @@ export default function HomeScreen() {
   );
 }
 
+export default function HomeScreen() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Groups') {
+            iconName = focused ? 'people' : 'people-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#3498db',
+        tabBarInactiveTintColor: 'gray',
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeTab} />
+      <Tab.Screen name="Groups" component={GroupScreen} />
+    </Tab.Navigator>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -188,7 +218,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   backButton: {
-    marginRight: 10,
+    marginRight: 15,
   },
   heading: {
     fontSize: 32,
