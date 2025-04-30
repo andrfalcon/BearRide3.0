@@ -1,37 +1,66 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, Platform, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Platform, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import GroupCard from '../components/GroupCard';
+import CreateGroupModal from '../components/CreateGroupModal';
+import { db } from '../firebaseConfig';
+import { collection, addDoc, serverTimestamp, getDocs, query, orderBy } from 'firebase/firestore';
+import React from 'react';
 
 export default function HomeScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
   const [selectedOption, setSelectedOption] = useState('Option 1');
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const sampleGroups = [
-    { 
-      name: 'Julia\'s Group', 
-      memberCount: 3,
-      destination: 'UC Berkeley',
-      departureTime: '8:00 AM',
-      gradientColors: ['#E3F2FD', '#BBDEFB', '#90CAF9']
-    },
-    { 
-      name: 'Chryssa\'s Group', 
-      memberCount: 4,
-      destination: 'SFO',
-      departureTime: '5:30 PM',
-      gradientColors: ['#F3E5F5', '#E1BEE7', '#CE93D8']
-    },
-    { 
-      name: 'Andrew\'s Group', 
-      memberCount: 5,
-      destination: 'OAK',
-      departureTime: '10:00 AM',
-      gradientColors: ['#E8F5E9', '#C8E6C9', '#A5D6A7']
-    },
-  ];
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const fetchGroups = async () => {
+    try {
+      setLoading(true);
+      const groupsCollection = collection(db, 'groups');
+      const q = query(groupsCollection, orderBy('departureTime', 'asc'));
+      const querySnapshot = await getDocs(q);
+      
+      const fetchedGroups = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().groupName,
+        memberCount: doc.data().numMembers,
+        destination: doc.data().destination,
+        departureTime: doc.data().departureTime,
+        gradientColors: getRandomGradientColors() // You might want to store this in Firestore if you want consistent colors
+      }));
+      
+      setGroups(fetchedGroups);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching groups:', err);
+      setError('Failed to load groups. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getRandomGradientColors = () => {
+    const gradients = [
+      ['#E3F2FD', '#BBDEFB', '#90CAF9'],
+      ['#F3E5F5', '#E1BEE7', '#CE93D8'],
+      ['#E8F5E9', '#C8E6C9', '#A5D6A7'],
+      ['#FFF3E0', '#FFE0B2', '#FFCC80'],
+      ['#E0F7FA', '#B2EBF2', '#80DEEA']
+    ];
+    return gradients[Math.floor(Math.random() * gradients.length)];
+  };
 
   const onTimeChange = (event, selectedDate) => {
     setShowTimePicker(false);
@@ -45,28 +74,101 @@ export default function HomeScreen() {
     console.log('Selected Time:', selectedTime);
   };
 
+  const handleCreateGroup = async (groupData) => {
+    try {
+      const groupsCollection = collection(db, 'groups');
+      const newGroup = {
+        groupName: groupData.groupName,
+        destination: groupData.destination,
+        departureTime: groupData.departureTime,
+        numMembers: 1,
+        createdAt: serverTimestamp()
+      };
+      
+      const docRef = await addDoc(groupsCollection, newGroup);
+      console.log('Group created with ID:', docRef.id);
+      
+      // Refresh the groups list
+      await fetchGroups();
+      
+      // Close the modal after successful creation
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Error creating group:', error);
+      setError('Failed to create group. Please try again.');
+    }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchGroups().finally(() => setRefreshing(false));
+  }, []);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Bearride</Text>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.navigate('Welcome')}
+        >
+          <Ionicons name="arrow-back" size={24} color="#2c3e50" />
+        </TouchableOpacity>
+        <Text style={styles.heading}>Bearride</Text>
+      </View>
       
-      <ScrollView style={styles.scrollView}>
-        {sampleGroups.map((group, index) => (
-          <GroupCard
-            key={index}
-            groupName={group.name}
-            memberCount={group.memberCount}
-            destination={group.destination}
-            departureTime={group.departureTime}
-            gradientColors={group.gradientColors}
-            onPress={() => console.log(`Pressed ${group.name}`)}
+      <ScrollView 
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#3498db']} // Android
+            tintColor="#3498db" // iOS
           />
-        ))}
+        }
+      >
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3498db" />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : groups.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No groups available. Create one!</Text>
+          </View>
+        ) : (
+          groups.map((group, index) => (
+            <GroupCard
+              key={group.id}
+              groupName={group.name}
+              memberCount={group.memberCount}
+              destination={group.destination}
+              departureTime={group.departureTime}
+              gradientColors={group.gradientColors}
+              onPress={() => console.log(`Pressed ${group.name}`)}
+            />
+          ))
+        )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.createButton}>
+      <TouchableOpacity 
+        style={styles.createButton}
+        onPress={() => setShowCreateModal(true)}
+      >
         <Ionicons name="add-circle" size={24} color="#3498db" />
         <Text style={styles.createButtonText}>Create BearRide Group</Text>
       </TouchableOpacity>
+
+      <CreateGroupModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateGroup}
+        initialDestination={route.params?.destination || 'airport'}
+        initialDepartureTime={route.params?.departureTime || '12:00 PM'}
+      />
 
       <StatusBar style="auto" />
     </View>
@@ -77,31 +179,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-    alignItems: 'center',
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingHorizontal: 20,
   },
-  scrollView: {
-    width: '100%',
-    flex: 1,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  backButton: {
+    marginRight: 10,
   },
   heading: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#2c3e50',
-    marginBottom: 30,
   },
-  submitButton: {
+  scrollView: {
     width: '100%',
-    backgroundColor: '#3498db',
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
+    flex: 1,
   },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
+  },
+  emptyText: {
+    color: '#7f8c8d',
+    fontSize: 16,
     textAlign: 'center',
   },
   createButton: {
