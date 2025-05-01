@@ -18,7 +18,7 @@ const GroupCard = ({
   departureTime = "5:00PM",
   onPress,
   onJoinPress,
-  gradientColors = ['#2c4a7f', '#2a3a68', '#0f1f4a'],
+  gradientColors = ['#B2D8D8', '#33CCCC'], // Default from your palette
 }) => {
   return (
     <TouchableOpacity 

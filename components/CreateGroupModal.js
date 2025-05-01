@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   View,
@@ -11,14 +11,23 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { X, MapPin, Clock, Edit } from 'lucide-react-native';
 
 export default function CreateGroupModal({ visible, onClose, onSubmit, initialDestination, initialDepartureTime }) {
   const [groupName, setGroupName] = useState('');
   const [animation] = useState(new Animated.Value(0));
 
+  // Add logging for props
+  React.useEffect(() => {
+    console.log('CreateGroupModal - Received props:', {
+      visible,
+      initialDestination,
+      initialDepartureTime
+    });
+  }, [visible, initialDestination, initialDepartureTime]);
+
   // Animation effect when modal opens
-  useEffect(() => {
+  React.useEffect(() => {
     if (visible) {
       Animated.timing(animation, {
         toValue: 1,
@@ -47,10 +56,6 @@ export default function CreateGroupModal({ visible, onClose, onSubmit, initialDe
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
-  };
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const modalScale = animation.interpolate({
@@ -83,11 +88,17 @@ export default function CreateGroupModal({ visible, onClose, onSubmit, initialDe
           >
             <View style={styles.header}>
               <Text style={styles.modalTitle}>Create BearRide Group</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <X size={20} color="white" />
+              </TouchableOpacity>
             </View>
             
             <View style={styles.formContainer}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Group Name</Text>
+                <View style={styles.labelRow}>
+                  <Edit size={18} color="#008080" />
+                  <Text style={styles.inputLabel}>Group Name</Text>
+                </View>
                 <TextInput
                   style={styles.input}
                   placeholder="Enter group name"
@@ -98,16 +109,22 @@ export default function CreateGroupModal({ visible, onClose, onSubmit, initialDe
               </View>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Destination</Text>
+                <View style={styles.labelRow}>
+                  <MapPin size={18} color="#008080" />
+                  <Text style={styles.inputLabel}>Destination</Text>
+                </View>
                 <View style={[styles.input, styles.disabledInput]}>
                   <Text style={styles.disabledText}>
-                    {initialDestination === 'berkeley' ? 'Berkeley' : 'Airport'}
+                    {initialDestination}
                   </Text>
                 </View>
               </View>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Departure Time</Text>
+                <View style={styles.labelRow}>
+                  <Clock size={18} color="#008080" />
+                  <Text style={styles.inputLabel}>Departure Time</Text>
+                </View>
                 <View style={[styles.input, styles.disabledInput]}>
                   <Text style={styles.disabledText}>
                     {initialDepartureTime}
@@ -166,69 +183,79 @@ const styles = StyleSheet.create({
     }),
   },
   header: {
-    backgroundColor: '#4299E1',
+    backgroundColor: '#008080',
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  closeButton: {
+    padding: 4,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: 'white',
-    textAlign: 'center',
   },
   formContainer: {
     padding: 24,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   inputGroup: {
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#4A5568',
-    marginBottom: 6,
+    color: '#333',
+    marginLeft: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#00808030',
     borderRadius: 8,
     padding: 14,
     fontSize: 16,
-    color: '#2D3748',
+    color: '#333',
     backgroundColor: '#F7FAFC',
   },
   disabledInput: {
-    backgroundColor: '#EDF2F7',
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F0F5F5',
+    borderColor: '#00808020',
   },
   disabledText: {
-    color: '#4A5568',
+    color: '#555',
     fontSize: 16,
   },
   buttonContainer: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#00808020',
   },
   cancelButton: {
     flex: 1,
     padding: 16,
     alignItems: 'center',
     borderRightWidth: 0.5,
-    borderRightColor: '#E2E8F0',
+    borderRightColor: '#00808020',
   },
   submitButton: {
     flex: 1,
     padding: 16,
     alignItems: 'center',
-    backgroundColor: '#4299E1',
+    backgroundColor: '#008080',
     borderLeftWidth: 0.5,
-    borderLeftColor: '#E2E8F0',
+    borderLeftColor: '#00808020',
   },
   cancelButtonText: {
-    color: '#718096',
+    color: '#666',
     fontSize: 16,
     fontWeight: '600',
   },

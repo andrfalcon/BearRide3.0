@@ -109,7 +109,10 @@ export default function TravelPlanner({ navigation }) {
       <View style={styles.card}>
         <Picker
           selectedValue={departureTime}
-          onValueChange={(val) => setDepartureTime(val)}
+          onValueChange={(val) => {
+            console.log('Selected time:', val);
+            setDepartureTime(val);
+          }}
           style={styles.picker}
           itemStyle={{ fontSize: 16 }}
         >
@@ -133,9 +136,18 @@ export default function TravelPlanner({ navigation }) {
       <TouchableOpacity 
         style={styles.rideButton}
         onPress={() => {
-          navigation.navigate('Home', {
+          console.log('WelcomeScreen - Selected departure time:', departureTime);
+          if (!departureTime) {
+            alert('Please select a departure time');
+            return;
+          }
+          console.log('WelcomeScreen - Navigating to Home with params:', {
             destination: destination,
             departureTime: departureTime
+          });
+          navigation.navigate('Home', {
+            realDestination: destination,
+            realDepartureTime: departureTime
           });
         }}
       >
